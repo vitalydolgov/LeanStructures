@@ -1,0 +1,10 @@
+name = "LeanStructures"
+version = "0.1.0"
+defaultTargets = ["leanstructures"]
+
+[[lean_lib]]
+name = "LeanStructures"
+
+[[lean_exe]]
+name = "leanstructures"
+root = "Main"
