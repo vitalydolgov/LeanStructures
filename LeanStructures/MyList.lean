@@ -25,6 +25,7 @@ def length : MyList α → Nat
   | nil => 0
   | _ :: xs => 1 + length xs
 
+/-- Length of empty list is zero. -/
 theorem length_nil : length (nil : MyList α) = 0 := rfl
 
 /-! ## Append -/
@@ -87,12 +88,12 @@ theorem reverse_singleton (x : α) :
 theorem reverse_append (xs ys : MyList α) :
     reverse (xs ++ ys) = reverse ys ++ reverse xs :=
   match xs with
-  | nil => by symm; apply append_nil
+  | nil => (append_nil (reverse ys)).symm
   | x :: xs =>
     have ih := reverse_append xs ys
     calc reverse (x :: xs ++ ys) = reverse (xs ++ ys) ++ x :: nil := rfl
       _ = (reverse ys ++ reverse xs) ++ x :: nil := by rw [ih]
-      _ = reverse ys ++ reverse xs ++ x :: nil := by apply append_assoc
+      _ = reverse ys ++ reverse xs ++ x :: nil := by rw [append_assoc]
 
 /-- Reverse is an involution: applying it twice yields identity. -/
 theorem reverse_reverse (xs : MyList α) :
@@ -102,7 +103,7 @@ theorem reverse_reverse (xs : MyList α) :
   | x :: xs =>
     have ih := reverse_reverse xs
     calc reverse (reverse (x :: xs)) = reverse (reverse xs ++ x :: nil) := rfl
-      _ = reverse (x :: nil) ++ reverse (reverse xs) := by apply reverse_append
+      _ = reverse (x :: nil) ++ reverse (reverse xs) := by rw [reverse_append]
       _ = reverse (x :: nil) ++ xs := by rw [ih]
 
 /-- Length is invariant under reverse. -/
@@ -113,7 +114,7 @@ theorem length_reverse (xs : MyList α) :
   | x :: xs =>
     have ih := length_reverse xs
     calc length (reverse (x :: xs)) = length (reverse xs ++ x :: nil) := rfl
-      _ = length (reverse xs) + length (x :: nil) := by apply length_append
+      _ = length (reverse xs) + length (x :: nil) := by rw [length_append]
       _ = length xs + length (x :: nil) := by rw [ih]
       _ = 1 + length xs := by ac_rfl
 
@@ -121,9 +122,9 @@ theorem length_reverse (xs : MyList α) :
 theorem reverse_injective (xs ys : MyList α) :
     reverse xs = reverse ys → xs = ys := fun h =>
   calc xs
-    _ = reverse (reverse xs) := by symm; apply reverse_reverse
+    _ = reverse (reverse xs) := by symm; rw [reverse_reverse]
     _ = reverse (reverse ys) := by rw [h]
-    _ = ys := by apply reverse_reverse
+    _ = ys := by rw [reverse_reverse]
 
 /-- Characterization of reverse equality. -/
 theorem reverse_eq_iff (xs ys : MyList α) :
@@ -131,13 +132,98 @@ theorem reverse_eq_iff (xs ys : MyList α) :
   Iff.intro
     (fun h =>
       calc xs
-        _ = reverse (reverse xs) := by symm; apply reverse_reverse
+        _ = reverse (reverse xs) := by symm; rw [reverse_reverse]
         _ = reverse ys := by rw [h]
     )
     (fun h =>
       calc reverse xs
         _ = reverse (reverse ys) := by rw [h]
-        _ = ys := by apply reverse_reverse
+        _ = ys := by rw [reverse_reverse]
     )
+
+/-! ## Map -/
+
+/-- Applies a function to every element of a list. -/
+def map : (α → β) → MyList α → MyList β
+  | _, nil => nil
+  | f, x :: xs => f x :: map f xs
+
+/-- Mapping over empty list yields empty list. -/
+theorem map_nil :
+    map f nil = nil := rfl
+
+/-- Identity function preserves the list. -/
+theorem map_id (xs : MyList α) :
+    map id xs = xs :=
+  match xs with
+  | nil => rfl
+  | x :: xs =>
+    have ih := map_id xs
+    congrArg (cons x ·) ih
+
+/-- Map computation rule for cons. -/
+theorem map_cons (f : α → β) (xs : MyList α) :
+    map f (x :: xs) = f x :: map f xs := rfl
+
+/-- Functor composition law: mapping twice equals mapping the composition. -/
+theorem map_map (f : α → β) (g : β → γ) (xs : MyList α) :
+    map g (map f xs) = map (g ∘ f) xs :=
+  match xs with
+  | nil => rfl
+  | x :: xs =>
+    have ih := map_map f g xs
+    calc map g (map f (x :: xs))
+      _ = (g ∘ f) x :: map g (map f xs) := rfl
+      _ = (g ∘ f) x :: map (g ∘ f) xs := by rw [ih]
+
+/-- Length is invariant under map. -/
+theorem length_map (f : α → β) (xs : MyList α) :
+    length (map f xs) = length xs :=
+  match xs with
+  | nil => rfl
+  | x :: xs =>
+    have ih := length_map f xs
+    calc length (map f (x :: xs))
+      _ = 1 + length (map f xs) := rfl
+      _ = 1 + length xs := by rw [ih]
+
+/-- Map is a homomorphism: it distributes over append. -/
+theorem map_append (f : α → β) (xs ys : MyList α) :
+    map f (xs ++ ys) = map f xs ++ map f ys :=
+  match xs with
+  | nil => rfl
+  | x :: xs =>
+    have ih := map_append f xs ys
+    calc map f ((x :: xs) ++ ys)
+      _ = f x :: map f (xs ++ ys) := rfl
+      _ = f x :: (map f xs ++ map f ys) := by rw [ih]
+
+/-- Map and reverse commute. -/
+theorem map_reverse (f : α → β) (xs : MyList α) :
+    map f (reverse xs) = reverse (map f xs) :=
+  match xs with
+  | nil => rfl
+  | x :: xs =>
+    have ih := map_reverse f xs
+    calc map f (reverse (x :: xs))
+      _ = map f (reverse xs ++ x :: nil) := rfl
+      _ = map f (reverse xs) ++ map f (x :: nil) := by rw [map_append]
+      _ = reverse (map f xs) ++ map f (x :: nil) := by rw [ih]
+
+/-- If f is injective, then map f is injective. -/
+theorem map_injective
+  (f : α → β) (hinj : Function.Injective f) (xs ys : MyList α) :
+    map f xs = map f ys → xs = ys :=
+  fun heq =>
+    match xs, ys with
+    | nil, nil => rfl
+    | x :: xs, y :: ys =>
+      have heq_decomp := MyList.cons.inj heq
+      have hh : x = y := hinj heq_decomp.1
+      have heq' : map f xs = map f ys := heq_decomp.2
+      have ht : xs = ys := map_injective f hinj xs ys heq'
+      calc x :: xs
+        _ = y :: xs := congrArg (cons · xs) hh
+        _ = y :: ys := congrArg (cons y ·) ht
 
 end MyList
