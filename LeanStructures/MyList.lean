@@ -18,6 +18,19 @@ def mk : List α → MyList α
 
 infixr:67 " :: " => cons
 
+/-! ## Membership -/
+
+def Mem (a : α) : MyList α → Prop
+  | nil => False
+  | x :: xs => a = x ∨ Mem a xs
+
+instance : Membership α (MyList α) where
+  mem := flip Mem
+
+theorem mem_nil : a ∈ nil ↔ False := Iff.rfl
+
+theorem mem_cons : a ∈ (cons x xs) ↔ a = x ∨ a ∈ xs := Iff.rfl
+
 /-! ## Length -/
 
 /-- Returns the number of elements in a list. -/
@@ -148,11 +161,48 @@ def map : (α → β) → MyList α → MyList β
   | _, nil => nil
   | f, x :: xs => f x :: map f xs
 
-/-- Mapping over empty list yields empty list. -/
+/-! ### Characterization
+
+    An element belongs to the image if and only if it has a preimage. -/
+
+theorem mem_map :
+    y ∈ map f xs ↔ ∃ x, x ∈ xs ∧ f x = y :=
+  match xs with
+  | nil =>
+    Iff.intro
+      (fun h => False.elim h)
+      (fun ⟨_, hmem, _⟩ => False.elim hmem)
+  | x :: xs =>
+    have ih := mem_map (xs := xs) (f := f) (y := y)
+    Iff.intro
+      (fun h =>
+        match h with
+        | Or.inl heq => ⟨x, Or.inl rfl, heq.symm⟩
+        | Or.inr hmem_map =>
+          have ⟨wit, hmem_wit_tl, heq_fwit⟩ := ih.mp hmem_map
+          ⟨wit, Or.inr hmem_wit_tl, heq_fwit⟩)
+      (fun h =>
+        have ⟨wit, hmem_wit_cons, heq_fwit⟩ := h
+        match hmem_wit_cons with
+        | Or.inl heq_wit_hd =>
+          Or.inl (heq_fwit ▸ heq_wit_hd ▸ rfl)
+        | Or.inr hmem_wit_tl =>
+          Or.inr (ih.mpr ⟨wit, hmem_wit_tl, heq_fwit⟩))
+
+/-! ### Computation Rules
+
+    One equation per constructor of `MyList`. -/
+
 theorem map_nil :
     map f nil = nil := rfl
 
-/-- Identity function preserves the list. -/
+theorem map_cons (f : α → β) (xs : MyList α) :
+    map f (x :: xs) = f x :: map f xs := rfl
+
+/-! ### Functor Laws
+
+    `(MyList, map)` forms a functor with identity and composition laws. -/
+
 theorem map_id (xs : MyList α) :
     map id xs = xs :=
   match xs with
@@ -161,11 +211,6 @@ theorem map_id (xs : MyList α) :
     have ih := map_id xs
     congrArg (cons x ·) ih
 
-/-- Map computation rule for cons. -/
-theorem map_cons (f : α → β) (xs : MyList α) :
-    map f (x :: xs) = f x :: map f xs := rfl
-
-/-- Functor composition law: mapping twice equals mapping the composition. -/
 theorem map_map (f : α → β) (g : β → γ) (xs : MyList α) :
     map g (map f xs) = map (g ∘ f) xs :=
   match xs with
@@ -176,18 +221,11 @@ theorem map_map (f : α → β) (g : β → γ) (xs : MyList α) :
       _ = (g ∘ f) x :: map g (map f xs) := rfl
       _ = (g ∘ f) x :: map (g ∘ f) xs := by rw [ih]
 
-/-- Length is invariant under map. -/
-theorem length_map (f : α → β) (xs : MyList α) :
-    length (map f xs) = length xs :=
-  match xs with
-  | nil => rfl
-  | x :: xs =>
-    have ih := length_map f xs
-    calc length (map f (x :: xs))
-      _ = 1 + length (map f xs) := rfl
-      _ = 1 + length xs := by rw [ih]
+/-! ### Monoid Homomorphism
 
-/-- Map is a homomorphism: it distributes over append. -/
+    `(MyList α, ++, nil)` is a monoid. `map f` is a monoid homomorphism.
+    Note: map_nil serves double duty as the unit law. -/
+
 theorem map_append (f : α → β) (xs ys : MyList α) :
     map f (xs ++ ys) = map f xs ++ map f ys :=
   match xs with
@@ -198,7 +236,21 @@ theorem map_append (f : α → β) (xs ys : MyList α) :
       _ = f x :: map f (xs ++ ys) := rfl
       _ = f x :: (map f xs ++ map f ys) := by rw [ih]
 
-/-- Map and reverse commute. -/
+/-! ### Naturality
+
+    `length` is invariant under `map`.
+    `reverse` commutes with `map`. -/
+
+theorem length_map (f : α → β) (xs : MyList α) :
+    length (map f xs) = length xs :=
+  match xs with
+  | nil => rfl
+  | x :: xs =>
+    have ih := length_map f xs
+    calc length (map f (x :: xs))
+      _ = 1 + length (map f xs) := rfl
+      _ = 1 + length xs := by rw [ih]
+
 theorem map_reverse (f : α → β) (xs : MyList α) :
     map f (reverse xs) = reverse (map f xs) :=
   match xs with
@@ -210,7 +262,8 @@ theorem map_reverse (f : α → β) (xs : MyList α) :
       _ = map f (reverse xs) ++ map f (x :: nil) := by rw [map_append]
       _ = reverse (map f xs) ++ map f (x :: nil) := by rw [ih]
 
-/-- If f is injective, then map f is injective. -/
+/-! ### Injectivity -/
+
 theorem map_injective
   (f : α → β) (hinj : Function.Injective f) (xs ys : MyList α) :
     map f xs = map f ys → xs = ys :=
