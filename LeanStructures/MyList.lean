@@ -50,10 +50,44 @@ def append : MyList α → MyList α → MyList α
 
 infixr:65 " ++ " => append
 
-/-- Left identity for append. -/
-theorem nil_append (xs : MyList α) : nil ++ xs = xs := rfl
+/-! ### Characterization
 
-/-- Right identity for append. -/
+    An element belongs to the concatenation of two lists
+    if and only if it belongs to at least one of them. -/
+
+theorem mem_append :
+    a ∈ (xs ++ ys) ↔ a ∈ xs ∨ a ∈ ys :=
+  match xs with
+  | nil =>
+    Iff.intro
+      (fun h => Or.inr h)
+      (fun h =>
+        match h with
+        | Or.inl hfalse => False.elim hfalse
+        | Or.inr hmem => hmem)
+  | _ :: xs =>
+    have ih := mem_append (xs := xs) (ys := ys) (a := a)
+    Iff.intro
+      (fun h =>
+        match h with
+        | Or.inl heq => Or.inl (Or.inl heq)
+        | Or.inr hmem =>
+          match ih.mp hmem with
+          | Or.inl hmem_tl => Or.inl (Or.inr hmem_tl)
+          | Or.inr hmem_ys => Or.inr hmem_ys
+        )
+      (fun h =>
+        match h with
+        | Or.inl hmem_cons =>
+          match hmem_cons with
+          | Or.inl heq_hd => Or.inl heq_hd
+          | Or.inr hmem_tl => Or.inr (ih.mpr (Or.inl hmem_tl))
+        | Or.inr hmem_ys => Or.inr (ih.mpr (Or.inr hmem_ys)))
+
+/-! ### Monoid Laws
+
+    `(MyList α, ++, nil)` forms a monoid with identity and associativity. -/
+
 theorem append_nil (xs : MyList α) : xs ++ nil = xs :=
   match xs with
   | nil => rfl
@@ -61,7 +95,6 @@ theorem append_nil (xs : MyList α) : xs ++ nil = xs :=
     have ih := append_nil xs
     congrArg (cons x ·) ih
 
-/-- Associativity of append. -/
 theorem append_assoc (xs ys zs : MyList α) :
     (xs ++ ys) ++ zs = xs ++ (ys ++ zs) :=
   match xs with
@@ -70,7 +103,11 @@ theorem append_assoc (xs ys zs : MyList α) :
     have ih := append_assoc xs ys zs
     congrArg (cons x ·) ih
 
-/-- Length is a monoid homomorphism from (MyList, ++, nil) to (Nat, +, 0). -/
+/-! ### Monoid Homomorphism
+
+    `length` is a monoid homomorphism from `(MyList α, ++, nil)` to `(Nat, +, 0)`.
+    Note: `length_nil` serves double duty as the unit law. -/
+
 theorem length_append (xs ys : MyList α) :
     length (xs ++ ys) = length xs + length ys :=
   match xs with
