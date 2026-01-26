@@ -38,10 +38,6 @@ def length : MyList α → Nat
   | nil => 0
   | _ :: xs => 1 + length xs
 
-/-! ### Computation Rules
-
-    One equation per constructor of `MyList`. -/
-
 theorem length_nil : length (nil : MyList α) = 0 := rfl
 
 theorem length_cons : length (cons x nil) = 1 := rfl
@@ -55,10 +51,12 @@ def append : MyList α → MyList α → MyList α
 
 infixr:65 " ++ " => append
 
-/-! ### Characterization
-
-    An element belongs to the concatenation of two lists if and only if
-    it belongs to at least one of them. -/
+theorem append_nil (xs : MyList α) : xs ++ nil = xs :=
+  match xs with
+  | nil => rfl
+  | x :: xs =>
+    have ih := append_nil xs
+    congrArg (cons x ·) ih
 
 theorem mem_append :
     a ∈ (xs ++ ys) ↔ a ∈ xs ∨ a ∈ ys :=
@@ -88,17 +86,6 @@ theorem mem_append :
           | Or.inr hmem_tl => Or.inr (ih.mpr (Or.inl hmem_tl))
         | Or.inr hmem_ys => Or.inr (ih.mpr (Or.inr hmem_ys)))
 
-/-! ### Monoid Laws
-
-    `(MyList α, ++, nil)` forms a monoid with identity and associativity. -/
-
-theorem append_nil (xs : MyList α) : xs ++ nil = xs :=
-  match xs with
-  | nil => rfl
-  | x :: xs =>
-    have ih := append_nil xs
-    congrArg (cons x ·) ih
-
 theorem append_assoc (xs ys zs : MyList α) :
     (xs ++ ys) ++ zs = xs ++ (ys ++ zs) :=
   match xs with
@@ -106,11 +93,6 @@ theorem append_assoc (xs ys zs : MyList α) :
   | x :: xs =>
     have ih := append_assoc xs ys zs
     congrArg (cons x ·) ih
-
-/-! ### Monoid Homomorphism
-
-    `length` is a monoid homomorphism from `(MyList α, ++, nil)` to `(Nat, +, 0)`.
-    Note: `length_nil` serves double duty as the unit law. -/
 
 theorem length_append (xs ys : MyList α) :
     length (xs ++ ys) = length xs + length ys :=
@@ -129,6 +111,12 @@ theorem length_append (xs ys : MyList α) :
 def reverse : MyList α → MyList α
   | nil => nil
   | x :: xs => reverse xs ++ x :: nil
+
+theorem reverse_nil :
+    reverse (nil : MyList α) = nil := rfl
+
+theorem reverse_cons (x : α) :
+    reverse (x :: nil) = x :: nil := rfl
 
 theorem mem_reverse : a ∈ reverse xs ↔ a ∈ xs :=
   match xs with
@@ -154,15 +142,6 @@ theorem mem_reverse : a ∈ reverse xs ↔ a ∈ xs :=
           have hmem_tlrev := ih.mpr hmem_tl
           h_iff.mpr (Or.inl hmem_tlrev))
 
-/-- Reverse of empty list is empty. -/
-theorem reverse_nil :
-    reverse (nil : MyList α) = nil := rfl
-
-/-- Singleton lists are fixed points of reverse. -/
-theorem reverse_singleton (x : α) :
-    reverse (x :: nil) = x :: nil := rfl
-
-/-- Reverse is an anti-homomorphism: it reverses the order of concatenation. -/
 theorem reverse_append (xs ys : MyList α) :
     reverse (xs ++ ys) = reverse ys ++ reverse xs :=
   match xs with
@@ -173,7 +152,6 @@ theorem reverse_append (xs ys : MyList α) :
       _ = (reverse ys ++ reverse xs) ++ x :: nil := by rw [ih]
       _ = reverse ys ++ reverse xs ++ x :: nil := by rw [append_assoc]
 
-/-- Reverse is an involution: applying it twice yields identity. -/
 theorem reverse_reverse (xs : MyList α) :
     reverse (reverse xs) = xs :=
   match xs with
@@ -184,7 +162,6 @@ theorem reverse_reverse (xs : MyList α) :
       _ = reverse (x :: nil) ++ reverse (reverse xs) := by rw [reverse_append]
       _ = reverse (x :: nil) ++ xs := by rw [ih]
 
-/-- Length is invariant under reverse. -/
 theorem length_reverse (xs : MyList α) :
     length (reverse xs) = length xs :=
   match xs with
@@ -196,7 +173,6 @@ theorem length_reverse (xs : MyList α) :
       _ = length xs + length (x :: nil) := by rw [ih]
       _ = 1 + length xs := by ac_rfl
 
-/-- Reverse is injective (one-to-one). -/
 theorem reverse_injective (xs ys : MyList α) :
     reverse xs = reverse ys → xs = ys := fun h =>
   calc xs
@@ -204,7 +180,6 @@ theorem reverse_injective (xs ys : MyList α) :
     _ = reverse (reverse ys) := by rw [h]
     _ = ys := by rw [reverse_reverse]
 
-/-- Characterization of reverse equality. -/
 theorem reverse_eq_iff (xs ys : MyList α) :
     reverse xs = ys ↔ xs = reverse ys :=
   Iff.intro
@@ -226,9 +201,11 @@ def map : (α → β) → MyList α → MyList β
   | _, nil => nil
   | f, x :: xs => f x :: map f xs
 
-/-! ### Characterization
+theorem map_nil :
+    map f nil = nil := rfl
 
-    An element belongs to the image if and only if it has a preimage. -/
+theorem map_cons (f : α → β) (xs : MyList α) :
+    map f (x :: xs) = f x :: map f xs := rfl
 
 theorem mem_map :
     y ∈ map f xs ↔ ∃ x, x ∈ xs ∧ f x = y :=
@@ -254,20 +231,6 @@ theorem mem_map :
         | Or.inr hmem_wit_tl =>
           Or.inr (ih.mpr ⟨wit, hmem_wit_tl, heq_fwit⟩))
 
-/-! ### Computation Rules
-
-    One equation per constructor of `MyList`. -/
-
-theorem map_nil :
-    map f nil = nil := rfl
-
-theorem map_cons (f : α → β) (xs : MyList α) :
-    map f (x :: xs) = f x :: map f xs := rfl
-
-/-! ### Functor Laws
-
-    `(MyList, map)` forms a functor with identity and composition laws. -/
-
 theorem map_id (xs : MyList α) :
     map id xs = xs :=
   match xs with
@@ -286,11 +249,6 @@ theorem map_map (f : α → β) (g : β → γ) (xs : MyList α) :
       _ = (g ∘ f) x :: map g (map f xs) := rfl
       _ = (g ∘ f) x :: map (g ∘ f) xs := by rw [ih]
 
-/-! ### Monoid Homomorphism
-
-    `(MyList α, ++, nil)` is a monoid. `map f` is a monoid homomorphism.
-    Note: map_nil serves double duty as the unit law. -/
-
 theorem map_append (f : α → β) (xs ys : MyList α) :
     map f (xs ++ ys) = map f xs ++ map f ys :=
   match xs with
@@ -300,11 +258,6 @@ theorem map_append (f : α → β) (xs ys : MyList α) :
     calc map f ((x :: xs) ++ ys)
       _ = f x :: map f (xs ++ ys) := rfl
       _ = f x :: (map f xs ++ map f ys) := by rw [ih]
-
-/-! ### Naturality
-
-    `length` is invariant under `map`.
-    `reverse` commutes with `map`. -/
 
 theorem length_map (f : α → β) (xs : MyList α) :
     length (map f xs) = length xs :=
@@ -326,8 +279,6 @@ theorem map_reverse (f : α → β) (xs : MyList α) :
       _ = map f (reverse xs ++ x :: nil) := rfl
       _ = map f (reverse xs) ++ map f (x :: nil) := by rw [map_append]
       _ = reverse (map f xs) ++ map f (x :: nil) := by rw [ih]
-
-/-! ### Injectivity -/
 
 theorem map_injective
   (f : α → β) (hinj : Function.Injective f) (xs ys : MyList α) :
