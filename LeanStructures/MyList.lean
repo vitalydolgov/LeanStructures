@@ -38,8 +38,13 @@ def length : MyList α → Nat
   | nil => 0
   | _ :: xs => 1 + length xs
 
-/-- Length of empty list is zero. -/
+/-! ### Computation Rules
+
+    One equation per constructor of `MyList`. -/
+
 theorem length_nil : length (nil : MyList α) = 0 := rfl
+
+theorem length_cons : length (cons x nil) = 1 := rfl
 
 /-! ## Append -/
 
@@ -52,8 +57,8 @@ infixr:65 " ++ " => append
 
 /-! ### Characterization
 
-    An element belongs to the concatenation of two lists
-    if and only if it belongs to at least one of them. -/
+    An element belongs to the concatenation of two lists if and only if
+    it belongs to at least one of them. -/
 
 theorem mem_append :
     a ∈ (xs ++ ys) ↔ a ∈ xs ∨ a ∈ ys :=
@@ -74,8 +79,7 @@ theorem mem_append :
         | Or.inr hmem =>
           match ih.mp hmem with
           | Or.inl hmem_tl => Or.inl (Or.inr hmem_tl)
-          | Or.inr hmem_ys => Or.inr hmem_ys
-        )
+          | Or.inr hmem_ys => Or.inr hmem_ys)
       (fun h =>
         match h with
         | Or.inl hmem_cons =>
@@ -125,6 +129,30 @@ theorem length_append (xs ys : MyList α) :
 def reverse : MyList α → MyList α
   | nil => nil
   | x :: xs => reverse xs ++ x :: nil
+
+theorem mem_reverse : a ∈ reverse xs ↔ a ∈ xs :=
+  match xs with
+  | nil => Iff.rfl
+  | x :: xs =>
+    have ih := mem_reverse (xs := xs) (a := a)
+    have h_iff := mem_append (xs := reverse xs) (ys := x :: nil) (a := a)
+    Iff.intro
+      (fun h =>
+        match h_iff.mp h with
+        | Or.inl hmem_tlrev => Or.inr (ih.mp hmem_tlrev)
+        | Or.inr hmem_cons =>
+          have h_cons_iif := mem_cons (a := a) (x := x) (xs := nil)
+          match h_cons_iif.mp hmem_cons with
+          | Or.inl heq => Or.inl heq
+          | Or.inr hfalse => False.elim hfalse)
+      (fun h =>
+        match mem_cons.mp h with
+        | Or.inl heq =>
+          have hmem_cons := show a ∈ x :: nil from Or.inl heq
+          h_iff.mpr (Or.inr hmem_cons)
+        | Or.inr hmem_tl =>
+          have hmem_tlrev := ih.mpr hmem_tl
+          h_iff.mpr (Or.inl hmem_tlrev))
 
 /-- Reverse of empty list is empty. -/
 theorem reverse_nil :
