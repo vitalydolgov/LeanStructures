@@ -24,8 +24,7 @@ def Mem (a : α) : MyList α → Prop
   | nil => False
   | x :: xs => a = x ∨ Mem a xs
 
-instance : Membership α (MyList α) where
-  mem := flip Mem
+instance : Membership α (MyList α) where mem := flip Mem
 
 theorem mem_nil : a ∈ nil ↔ False := Iff.rfl
 
@@ -40,7 +39,7 @@ def length : MyList α → Nat
 
 theorem length_nil : length (nil : MyList α) = 0 := rfl
 
-theorem length_cons : length (cons x nil) = 1 := rfl
+theorem length_cons : length (x :: xs) = 1 + length xs := rfl
 
 /-! ## Append -/
 
@@ -57,6 +56,8 @@ theorem append_nil (xs : MyList α) : xs ++ nil = xs :=
   | x :: xs =>
     have ih := append_nil xs
     congrArg (cons x ·) ih
+
+theorem append_cons : (x :: xs) ++ ys = x :: (xs ++ ys) := rfl
 
 theorem mem_append :
     a ∈ (xs ++ ys) ↔ a ∈ xs ∨ a ∈ ys :=
@@ -112,11 +113,9 @@ def reverse : MyList α → MyList α
   | nil => nil
   | x :: xs => reverse xs ++ x :: nil
 
-theorem reverse_nil :
-    reverse (nil : MyList α) = nil := rfl
+theorem reverse_nil : reverse (nil : MyList α) = nil := rfl
 
-theorem reverse_cons (x : α) :
-    reverse (x :: nil) = x :: nil := rfl
+theorem reverse_cons : reverse (x :: xs) = reverse xs ++ x :: nil := rfl
 
 theorem mem_reverse : a ∈ reverse xs ↔ a ∈ xs :=
   match xs with
@@ -173,14 +172,14 @@ theorem length_reverse (xs : MyList α) :
       _ = length xs + length (x :: nil) := by rw [ih]
       _ = 1 + length xs := by ac_rfl
 
-theorem reverse_injective (xs ys : MyList α) :
+theorem reverse_injective :
     reverse xs = reverse ys → xs = ys := fun h =>
   calc xs
     _ = reverse (reverse xs) := by symm; rw [reverse_reverse]
     _ = reverse (reverse ys) := by rw [h]
     _ = ys := by rw [reverse_reverse]
 
-theorem reverse_eq_iff (xs ys : MyList α) :
+theorem reverse_eq_iff :
     reverse xs = ys ↔ xs = reverse ys :=
   Iff.intro
     (fun h =>
@@ -201,13 +200,11 @@ def map : (α → β) → MyList α → MyList β
   | _, nil => nil
   | f, x :: xs => f x :: map f xs
 
-theorem map_nil :
-    map f nil = nil := rfl
+theorem map_nil : map f nil = nil := rfl
 
-theorem map_cons (f : α → β) (xs : MyList α) :
-    map f (x :: xs) = f x :: map f xs := rfl
+theorem map_cons : map f (x :: xs) = f x :: map f xs := rfl
 
-theorem mem_map :
+theorem mem_map (f : α → β) (xs : MyList α):
     y ∈ map f xs ↔ ∃ x, x ∈ xs ∧ f x = y :=
   match xs with
   | nil =>
@@ -215,7 +212,7 @@ theorem mem_map :
       (fun h => False.elim h)
       (fun ⟨_, hmem, _⟩ => False.elim hmem)
   | x :: xs =>
-    have ih := mem_map (xs := xs) (f := f) (y := y)
+    have ih := mem_map f xs (y := y)
     Iff.intro
       (fun h =>
         match h with
